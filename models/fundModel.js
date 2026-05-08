@@ -1,4 +1,4 @@
-const client = require('../utility/dbManager');
+const client = require('../utility/pgManager');
 
 const createFund = (data) => {
     const { amc_id, fund_name, fund_type, risk_level } = data;
