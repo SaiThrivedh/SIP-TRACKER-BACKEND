@@ -1,4 +1,4 @@
-const db = require('../utility/dbManager');
+const client = require('../utility/pgManager');
 
 const createInvestor = (data) => {
     const {
@@ -11,24 +11,31 @@ const createInvestor = (data) => {
         const sql = `
             INSERT INTO investor 
             (first_name, middle_name, last_name, email, phone, dob, gender, pan, aadhaar, occupation, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE('now'))
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_DATE)
+            RETURNING investor_id
         `;
 
-        db.run(sql, [first_name, middle_name, last_name, email, phone, dob, gender, pan, aadhaar, occupation],
-            function(err) {
+        client.query(
+            sql,
+            [first_name, middle_name, last_name, email, phone, dob, gender, pan, aadhaar, occupation],
+            (err, result) => {
                 if (err) reject(err);
-                else resolve({ investor_id: this.lastID });
-            });
+                else resolve({ investor_id: result.rows[0].investor_id });
+            }
+        );
     });
 };
 
 const getInvestorById = (id) => {
     return new Promise((resolve, reject) => {
-        db.get(`SELECT * FROM investor WHERE investor_id = ?`, [id],
-            (err, row) => {
+        client.query(
+            `SELECT * FROM investor WHERE investor_id = $1`,
+            [id],
+            (err, result) => {
                 if (err) reject(err);
-                else resolve(row);
-            });
+                else resolve(result.rows[0]);
+            }
+        );
     });
 };
 
@@ -41,13 +48,13 @@ const getHoldings = (investorId) => {
             FROM investment_transaction it
             JOIN portfolio p ON it.portfolio_id = p.portfolio_id
             JOIN mutual_fund mf ON it.fund_id = mf.fund_id
-            WHERE p.investor_id = ?
+            WHERE p.investor_id = $1
             GROUP BY mf.fund_name
         `;
 
-        db.all(sql, [investorId], (err, rows) => {
+        client.query(sql, [investorId], (err, result) => {
             if (err) reject(err);
-            else resolve(rows);
+            else resolve(result.rows);
         });
     });
 };
@@ -62,16 +69,16 @@ const getNetworth = (investorId) => {
             JOIN portfolio p ON it.portfolio_id = p.portfolio_id
             JOIN mutual_fund mf ON it.fund_id = mf.fund_id
             JOIN nav_history nh ON mf.fund_id = nh.fund_id
-            WHERE p.investor_id = ?
+            WHERE p.investor_id = $1
             AND nh.nav_date = (
                 SELECT MAX(nav_date) FROM nav_history WHERE fund_id = mf.fund_id
             )
-            GROUP BY mf.fund_name
+            GROUP BY mf.fund_name, nh.nav
         `;
 
-        db.all(sql, [investorId], (err, rows) => {
+        client.query(sql, [investorId], (err, result) => {
             if (err) reject(err);
-            else resolve(rows);
+            else resolve(result.rows);
         });
     });
 };

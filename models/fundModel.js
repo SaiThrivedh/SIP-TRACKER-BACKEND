@@ -1,4 +1,4 @@
-const db = require('../utility/dbManager');
+const client = require('../utility/dbManager');
 
 const createFund = (data) => {
     const { amc_id, fund_name, fund_type, risk_level } = data;
@@ -6,12 +6,13 @@ const createFund = (data) => {
     return new Promise((resolve, reject) => {
         const sql = `
             INSERT INTO mutual_fund (amc_id, fund_name, fund_type, risk_level, created_at)
-            VALUES (?, ?, ?, ?, DATE('now'))
+            VALUES ($1, $2, $3, $4, CURRENT_DATE)
+            RETURNING fund_id
         `;
 
-        db.run(sql, [amc_id, fund_name, fund_type, risk_level], function(err) {
+        client.query(sql, [amc_id, fund_name, fund_type, risk_level], (err, result) => {
             if (err) reject(err);
-            else resolve({ fund_id: this.lastID });
+            else resolve({ fund_id: result.rows[0].fund_id });
         });
     });
 };
@@ -24,9 +25,9 @@ const getAllFunds = () => {
             JOIN amc a ON f.amc_id = a.amc_id
         `;
 
-        db.all(sql, [], (err, rows) => {
+        client.query(sql, [], (err, result) => {
             if (err) reject(err);
-            else resolve(rows);
+            else resolve(result.rows);
         });
     });
 };
@@ -35,12 +36,13 @@ const updateNAV = (fundId, nav) => {
     return new Promise((resolve, reject) => {
         const sql = `
             INSERT INTO nav_history (fund_id, nav, nav_date)
-            VALUES (?, ?, DATE('now'))
+            VALUES ($1, $2, CURRENT_DATE)
+            RETURNING nav_id
         `;
 
-        db.run(sql, [fundId, nav], function(err) {
+        client.query(sql, [fundId, nav], (err, result) => {
             if (err) reject(err);
-            else resolve({ nav_id: this.lastID });
+            else resolve({ nav_id: result.rows[0].nav_id });
         });
     });
 };

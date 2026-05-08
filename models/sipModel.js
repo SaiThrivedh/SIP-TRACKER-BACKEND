@@ -1,4 +1,4 @@
-const db = require('../utility/dbManager');
+const client = require('../utility/pgManager');
 
 const createSIP = (data) => {
     const { portfolio_id, fund_id, sip_amount, sip_date, start_date } = data;
@@ -7,82 +7,100 @@ const createSIP = (data) => {
         const sql = `
             INSERT INTO sip_registration 
             (portfolio_id, fund_id, sip_amount, sip_date, start_date, status)
-            VALUES (?, ?, ?, ?, ?, 'ACTIVE')
+            VALUES ($1, $2, $3, $4, $5, 'ACTIVE')
+            RETURNING sip_id
         `;
 
-        db.run(sql, [portfolio_id, fund_id, sip_amount, sip_date, start_date],
-            function(err) {
+        client.query(sql, [portfolio_id, fund_id, sip_amount, sip_date, start_date],
+            (err, result) => {
                 if (err) reject(err);
-                else resolve({ sip_id: this.lastID });
+                else resolve({ sip_id: result.rows[0].sip_id });
             });
     });
 };
 
 const getSIPById = (sipId) => {
     return new Promise((resolve, reject) => {
-        db.get(`SELECT * FROM sip_registration WHERE sip_id = ?`, [sipId],
-            (err, row) => {
+        client.query(
+            `SELECT * FROM sip_registration WHERE sip_id = $1`,
+            [sipId],
+            (err, result) => {
                 if (err) reject(err);
-                else resolve(row);
-            });
+                else resolve(result.rows[0]);
+            }
+        );
     });
 };
 
 const getTransactions = (sipId) => {
     return new Promise((resolve, reject) => {
-        db.all(`SELECT * FROM investment_transaction WHERE sip_id = ?`, [sipId],
-            (err, rows) => {
+        client.query(
+            `SELECT * FROM investment_transaction WHERE sip_id = $1`,
+            [sipId],
+            (err, result) => {
                 if (err) reject(err);
-                else resolve(rows);
-            });
+                else resolve(result.rows);
+            }
+        );
     });
 };
 
 const processSIP = (sipId) => {
     return new Promise((resolve, reject) => {
 
-        db.serialize(() => {
+        client.query("BEGIN", (err) => {
+            if (err) return reject(err);
 
-            db.run("BEGIN TRANSACTION");
+            client.query(
+                `SELECT * FROM sip_registration WHERE sip_id = $1`,
+                [sipId],
+                (err, sipResult) => {
 
-            db.get(`SELECT * FROM sip_registration WHERE sip_id = ?`, [sipId], (err, sip) => {
-                if (err ) {
-                    db.run("ROLLBACK");
-                    return reject(err );
-                }
-
-                db.get(`
-                    SELECT nav FROM nav_history 
-                    WHERE fund_id = ? 
-                    ORDER BY nav_date DESC LIMIT 1
-                `, [sip.fund_id], (err, navRow) => {
-
-                    if (err ) {
-                        db.run("ROLLBACK");
-                        return reject(err );
+                    if (err) {
+                        return client.query("ROLLBACK", () => reject(err));
                     }
 
-                    const units = sip.sip_amount / navRow.nav;
+                    const sip = sipResult.rows[0];
 
-                    db.run(`
-                        INSERT INTO investment_transaction
-                        (sip_id, portfolio_id, fund_id, transaction_amount, nav_at_purchase, units_allocated, transaction_date)
-                        VALUES (?, ?, ?, ?, ?, ?, DATE('now'))
-                    `, [sip.sip_id, sip.portfolio_id, sip.fund_id, sip.sip_amount, navRow.nav, units],
-                    function(err) {
+                    client.query(
+                        `SELECT nav FROM nav_history 
+                         WHERE fund_id = $1 
+                         ORDER BY nav_date DESC LIMIT 1`,
+                        [sip.fund_id],
+                        (err, navResult) => {
 
-                        if (err) {
-                            db.run("ROLLBACK");
-                            reject(err);
-                        } else {
-                            db.run("COMMIT");
-                            resolve({ transaction_id: this.lastID });
+                            if (err) {
+                                return client.query("ROLLBACK", () => reject(err));
+                            }
+
+                            const nav = navResult.rows[0].nav;
+                            const units = sip.sip_amount / nav;
+
+                            client.query(
+                                `INSERT INTO investment_transaction
+                                (sip_id, portfolio_id, fund_id, transaction_amount, nav_at_purchase, units_allocated, transaction_date)
+                                VALUES ($1, $2, $3, $4, $5, $6, CURRENT_DATE)
+                                RETURNING transaction_id`,
+                                [sip.sip_id, sip.portfolio_id, sip.fund_id, sip.sip_amount, nav, units],
+                                (err, txResult) => {
+
+                                    if (err) {
+                                        return client.query("ROLLBACK", () => reject(err));
+                                    } else {
+                                        client.query("COMMIT", (err) => {
+                                            if (err) reject(err);
+                                            else resolve({ transaction_id: txResult.rows[0].transaction_id });
+                                        });
+                                    }
+
+                                }
+                            );
+
                         }
-                    });
+                    );
 
-                });
-
-            });
+                }
+            );
 
         });
 
