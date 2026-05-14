@@ -1,15 +1,21 @@
-const express = require('express')
-const {createNewMutualFund, getAllMutualFunds, updateMutualFundNav} = require('../controller/fundController')
+const express = require("express");
+const {
+  createNewMutualFund,
+  getAllMutualFunds,
+  updateMutualFundNav,
+} = require("../controller/fundController");
 
-const router = express.Router()
+const authMiddleware = require("../middleware/authMiddleware");
 
-router.post('/', createNewMutualFund)
-router.get('/', getAllMutualFunds)
-router.put('/:fundId/nav', updateMutualFundNav)
-
-
-
-
+const router = express.Router();
 
 
-module.exports = router
+router.post("/", authMiddleware, createNewMutualFund);
+
+
+router.get("/", getAllMutualFunds);
+
+
+router.put("/:fundId/nav", authMiddleware, updateMutualFundNav);
+
+module.exports = router;

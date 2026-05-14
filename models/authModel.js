@@ -1,7 +1,5 @@
 const client = require("../utility/pgManager");
 
-const blacklistedTokens = new Set();
-
 const findUserByEmail = (email) => {
   return new Promise((resolve, reject) => {
     client.query(
@@ -15,16 +13,6 @@ const findUserByEmail = (email) => {
   });
 };
 
-const blacklistToken = (token) => {
-  blacklistedTokens.add(token);
-};
-
-const isBlacklisted = (token) => {
-  return blacklistedTokens.has(token);
-};
-
 module.exports = {
-  findUserByEmail,
-  blacklistToken,
-  isBlacklisted
+  findUserByEmail
 };

@@ -1,30 +1,21 @@
 const { verifyJWT } = require("../utility/authManager");
-const { isBlacklisted } = require("../models/authModel");
 
 const authMiddleware = (req, res, next) => {
-    const authHeader = req.headers.authorization;
+  const token = req.cookies.token;
 
-    if (!authHeader) {
-        return res.status(401).json({ message: "No token" });
-    }
+  if (!token) {
+    return res.status(401).json({ message: "No token" });
+  }
 
-    const token = authHeader.split(" ")[1];
+  const payload = verifyJWT(token);
 
-   
-    if (isBlacklisted(token)) {
-        return res.status(401).json({ message: "Token blacklisted" });
-    }
+  if (!payload) {
+    return res.status(401).json({ message: "Invalid/expired token" });
+  }
 
-    
-    const payload = verifyJWT(token);
+  req.user = payload;
 
-    if (!payload) {
-        return res.status(401).json({ message: "Invalid/expired token" });
-    }
-
-    req.user = payload;
-
-    next();
+  next();
 };
 
 module.exports = authMiddleware;

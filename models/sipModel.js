@@ -107,4 +107,20 @@ const processSIP = (sipId) => {
     });
 };
 
-module.exports = { createSIP, getSIPById, getTransactions, processSIP };
+
+const getAllTransactions = () => {
+    return new Promise((resolve, reject) => {
+        client.query(
+            `SELECT * FROM investment_transaction`,
+            (err, result) => {
+                if (err) {
+                    console.error("Error fetching all transactions:", err);
+                    reject(err);
+                }
+                else resolve(result.rows);
+            }
+        );
+    });
+};
+
+module.exports = { createSIP, getSIPById, getTransactions, processSIP, getAllTransactions };

@@ -1,18 +1,29 @@
-const express = require('express')
+const express = require("express");
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
+
 const app = express();
 
 app.use(express.json());
 
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  })
+);
 
-app.get('/', (req,res) => {
-    res.send("SIP-Tracker and Portfolio-Valuation-System")
-})
+app.use(cookieParser());
 
-app.use('/api/auth', require('./routes/authRoute'))
-app.use('/api/sips', require('./routes/sipRoute'))
-app.use('/api/investors', require('./routes/investorRoute'))
-app.use('/api/funds', require('./routes/fundRoute'))
+app.get("/", (req, res) => {
+  res.send("SIP-Tracker and Portfolio-Valuation-System");
+});
 
-app.listen(5000, ()=>{
-    console.log("Server is running on port 5000")
-})
+app.use("/api/auth", require("./routes/authRoute"));
+app.use("/api/sips", require("./routes/sipRoute"));
+app.use("/api/investors", require("./routes/investorRoute"));
+app.use("/api/funds", require("./routes/fundRoute"));
+
+app.listen(5000, () => {
+  console.log("Server is running on port 5000");
+});

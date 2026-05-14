@@ -45,9 +45,19 @@ const monthlySIPTransaction = async (req, res) => {
     }
 };
 
+const getAllSIPTransactions = async (req, res) => {
+    try {
+        const data = await sipModel.getAllTransactions();   
+        res.status(200).json(data);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
 module.exports = {
     createSIP,
     getSIP,             
     getSIPTransactions,
-    monthlySIPTransaction
+    monthlySIPTransaction,
+    getAllSIPTransactions
 };
